@@ -1,0 +1,122 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tender alerts and API | Nordic Tender Radar</title><meta name="description" content="Daily alerts for new public tenders in the Nordics and the EU, by keyword, country and CPV code. $0.003 per tender, no subscription.">
+<link rel="canonical" href="https://siyaogui.github.io/nordic-tender-radar/alerts.html"><meta property="og:title" content="Tender alerts and API | Nordic Tender Radar">
+<meta property="og:description" content="Daily alerts for new public tenders in the Nordics and the EU, by keyword, country and CPV code. $0.003 per tender, no subscription."><meta property="og:type" content="website">
+<style>
+:root{--paper:#f6f4ef;--ink:#1c1b19;--soft:#5b5852;--rule:#d8d3c7;--row:#fffdf8;--hi:#8f2d22;--hi-bg:#f3e3df;--focus:#1c1b19}
+@media (prefers-color-scheme:dark){:root{--paper:#151514;--ink:#ecebe6;--soft:#a29f97;--rule:#33312d;--row:#1c1c1a;--hi:#e58b7c;--hi-bg:#3a2522;--focus:#ecebe6}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+a{color:inherit}
+.w{max-width:1120px;margin:0 auto;padding:0 16px}
+.mast{border-bottom:2px solid var(--ink)}
+.mast .w{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:16px;padding-bottom:10px}
+.logo{font:700 21px/1.1 Georgia,"Iowan Old Style","Times New Roman",serif;text-decoration:none;letter-spacing:-.2px}
+.logo small{display:block;font:12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--soft);letter-spacing:.3px;margin-top:3px}
+.mast nav a{font-size:14px;text-decoration:none;margin-left:18px;color:var(--soft)}
+.mast nav a[aria-current]{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+.sub{border-bottom:1px solid var(--rule);font-size:13px;color:var(--soft)}
+.sub .w{display:flex;gap:16px;flex-wrap:wrap;padding-top:7px;padding-bottom:7px}
+.sub a{text-decoration:none}.sub a:hover{text-decoration:underline}
+h1{font:700 26px/1.2 Georgia,"Iowan Old Style","Times New Roman",serif;margin:26px 0 6px;letter-spacing:-.2px}
+.lede{color:var(--soft);margin:0 0 18px;max-width:760px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin-bottom:4px}
+.filters input,.filters select{font:inherit;font-size:14px;color:var(--ink);background:var(--row);border:1px solid var(--rule);border-radius:3px;padding:6px 8px;min-width:0}
+.filters input{flex:1 1 220px}
+.filters select{flex:0 1 auto}
+.filters :focus{outline:2px solid var(--focus);outline-offset:1px}
+.count{font-size:13px;color:var(--soft);padding:8px 0}
+ol.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.item{display:grid;grid-template-columns:1fr 150px 120px;gap:4px 18px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.item:hover{background:var(--row)}
+.ttl{font-weight:600;text-decoration:none}.ttl:hover{text-decoration:underline}
+.meta{font-size:13px;color:var(--soft);grid-column:1}
+.dl,.val{font-size:14px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dl small,.val small{display:block;font-size:12px;color:var(--soft)}
+.dl.soon{color:var(--hi)}.dl.soon small{color:var(--hi)}
+.colhead{display:grid;grid-template-columns:1fr 150px 120px;gap:18px;font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:.6px;padding:6px 0}
+.colhead span:not(:first-child){text-align:right}
+.more{margin:16px 0;font-size:14px}
+button.more{font:inherit;font-size:14px;background:none;border:1px solid var(--ink);color:var(--ink);padding:7px 14px;border-radius:3px;cursor:pointer}
+.prose{max-width:700px}
+.prose h2{font:700 19px/1.3 Georgia,"Iowan Old Style","Times New Roman",serif;margin:28px 0 6px}
+.prose p,.prose li{margin:0 0 10px}
+.price{border:1px solid var(--rule);background:var(--row);padding:14px 16px;margin:14px 0;max-width:700px}
+.price b{font-size:20px}
+.btn{display:inline-block;background:var(--ink);color:var(--paper);text-decoration:none;padding:9px 16px;border-radius:3px;font-weight:600;font-size:14px}
+pre{background:var(--row);border:1px solid var(--rule);padding:12px;overflow-x:auto;font-size:12.5px;line-height:1.45}
+.note{font-size:13px;color:var(--soft)}
+footer{border-top:1px solid var(--rule);margin-top:44px;padding:18px 0 40px;font-size:13px;color:var(--soft)}
+footer p{margin:0 0 6px;max-width:760px}
+@media (max-width:700px){
+ .item,.colhead{grid-template-columns:1fr auto}
+ .colhead span:nth-child(3),.item .val{display:none}
+ .mast nav a{margin:0 14px 0 0}
+ .mast nav{width:100%}
+}
+</style></head><body>
+<header class=mast><div class=w><a class=logo href="index.html">Nordic Tender Radar<small>Public tenders in the Nordic countries</small></a><nav><a href='index.html'>Tenders</a><a href='alerts.html' aria-current=page>Alerts and API</a><a href='about.html'>About</a></nav></div></header>
+<div class=sub><div class=w><a href='denmark.html'>Denmark</a><a href='sweden.html'>Sweden</a><a href='norway.html'>Norway</a><a href='finland.html'>Finland</a><a href='iceland.html'>Iceland</a><a href='it-software.html'>IT and software</a><a href='construction.html'>Construction</a><a href='cleaning-facility.html'>Cleaning and facility services</a><a href='medical-health.html'>Medical and health</a></div></div>
+<main class=w><div class=prose>
+<h1>Alerts and API</h1>
+<p class=lede>The list on this site is free. If you want the tenders that match your business delivered every morning, or the full data as a spreadsheet or API feed, use our tender finder on Apify.</p>
+<h2>What you set up once</h2>
+<p>Keywords in any language (for example <i>rengøring</i>, <i>städning</i> or <i>cloud</i>), the countries you sell to, CPV codes if you use them, and a minimum contract value if small jobs are not worth your time. Then add a daily schedule in Apify.</p>
+<h2>What you get each morning</h2>
+<p>Only the notices that are new since the last run, one row per tender: title, buyer, buyer email, deadline, estimated value, CPV codes, the place of performance and links to the TED notice and the tender documents. Apify can send them to email, Slack, Google Sheets or your CRM.</p>
+<pre>{
+  "title": "Denmark – Supply services of personnel including temporary staff – ...",
+  "buyerName": "Region Hovedstaden",
+  "submissionDeadline": "2026-12-17",
+  "estimatedValue": 224000000,
+  "currency": "DKK",
+  "cpvCodes": ["79620000", "85311000"],
+  "tedUrl": "https://ted.europa.eu/en/notice/-/detail/790080-2026"
+}</pre>
+<h2>Price</h2>
+<div class=price><b>$0.003 per tender delivered</b><br>No subscription. A daily alert for one sector in one country usually returns a handful of tenders a day, which is a few cents. Runs that find nothing new cost close to nothing. Apify adds its own small platform fee and has a free monthly allowance.</div>
+<p><a class=btn href="https://apify.com/nordic-tender-radar/eu-tender-finder">Open the tender finder on Apify</a></p>
+<h2>Coverage</h2>
+<p>All notices on TED, which covers contracts above the EU thresholds from every EU and EEA country. Smaller national tenders that only appear on national portals such as udbud.dk or Doffin are not included yet.</p>
+<p class=note>Questions or a missing filter: write to us through the <a href="https://apify.com/nordic-tender-radar/eu-tender-finder/issues">Apify issues page</a>.</p>
+</div></main>
+<footer><div class=w>
+<p>Updated 19 November 2026. Notices come from TED, the EU's official journal for public procurement (&copy; European Union, reused under the Commission's open data policy). Titles are TED's English versions where one exists; read the official notice before you bid.</p>
+<p>Nordic Tender Radar is an independent service based in Copenhagen and is not part of the EU or any public authority.</p>
+</div></footer>
+<script>
+(function(){
+ var list=document.getElementById('list'); if(!list) return;
+ var preset=JSON.parse(list.getAttribute('data-preset')||'{}');
+ var q=document.getElementById('q'),fc=document.getElementById('fc'),fs=document.getElementById('fs'),fd=document.getElementById('fd'),so=document.getElementById('so');
+ var cnt=document.getElementById('count'),more=document.getElementById('more');
+ var data=null,shown=60,today=list.getAttribute('data-today');
+ var names=JSON.parse(list.getAttribute('data-countries'));
+ function days(d){return Math.round((Date.parse(d)-Date.parse(today))/864e5);}
+ function money(v,u){if(!v)return '';var s=v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3)+'k':String(v);return s+' '+(u||'');}
+ function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+ function row(t){var n=days(t.d);var soon=n<=7?' soon':'';
+  return '<li class="item"><div><a class="ttl" target="_blank" rel="noopener" href="https://ted.europa.eu/en/notice/-/detail/'+esc(t.id)+'">'+esc(t.t)+'</a>'+
+  '<div class="meta">'+esc(t.b)+' &middot; '+esc(names[t.n]||t.n)+(t.c?' &middot; '+esc(t.c):'')+'</div></div>'+
+  '<div class="dl'+soon+'">'+esc(t.d)+'<small>'+(n<=0?'today':n===1?'1 day left':n+' days left')+'</small></div>'+
+  '<div class="val">'+(t.v?esc(money(t.v,t.u)):'<small>value not stated</small>')+'</div></li>';}
+ function apply(){ if(!data) return;
+  var text=(q.value||'').toLowerCase().trim(),c=fc.value,s=fs.value,d=parseInt(fd.value||'0',10);
+  var out=data.filter(function(t){
+   if(c&&t.n!==c) return false; if(s&&t.s.indexOf(s)<0) return false;
+   if(d&&days(t.d)>d) return false;
+   if(text&&(t.t+' '+t.b+' '+t.c).toLowerCase().indexOf(text)<0) return false; return true;});
+  var k=so.value;
+  out.sort(function(a,b){ if(k==='deadline') return a.d<b.d?-1:a.d>b.d?1:0; if(k==='value') return (b.v||0)-(a.v||0); return a.p<b.p?1:a.p>b.p?-1:0;});
+  cnt.textContent=out.length+' open tender'+(out.length===1?'':'s');
+  list.innerHTML=out.slice(0,shown).map(row).join('');
+  more.hidden=out.length<=shown;
+ }
+ [q,fc,fs,fd,so].forEach(function(el){el.addEventListener(el===q?'input':'change',function(){shown=60;apply();});});
+ more.addEventListener('click',function(){shown+=60;apply();});
+ fetch(list.getAttribute('data-src')).then(function(r){return r.json();}).then(function(j){data=j;
+  if(preset.c){fc.value=preset.c;} if(preset.s){fs.value=preset.s;} apply();}).catch(function(){});
+})();
+</script>
+</body></html>
