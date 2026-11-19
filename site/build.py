@@ -1,8 +1,8 @@
 """Build the Nordic Tender Radar website from TED (official EU procurement data).
 
-Runs daily in GitHub Actions. Fetches open calls for tender from the Nordic
-countries, writes static HTML pages into docs/ (served by GitHub Pages).
-Usage: python site/build.py [--fixture path.json] [--out docs]
+Runs every morning in GitHub Actions. Fetches calls for tender from the Nordic
+countries that are still open, and writes static pages into docs/ (GitHub Pages).
+Usage: python site/build.py [--fixture path.json] [--out docs] [--today YYYY-MM-DD]
 """
 from __future__ import annotations
 
@@ -18,23 +18,25 @@ from pathlib import Path
 API_URL = "https://api.ted.europa.eu/v3/notices/search"
 SITE_URL = "https://siyaogui.github.io/nordic-tender-radar"
 ACTOR_URL = "https://apify.com/nordic-tender-radar/eu-tender-finder"
+ISSUES_URL = "https://apify.com/nordic-tender-radar/eu-tender-finder/issues"
 BRAND = "Nordic Tender Radar"
-DAYS = 21
-MAX_PER_PAGE = 150
+DAYS = 30
+SERVER_ROWS = 60  # rows rendered into the HTML; the rest load from tenders.json
 
 COUNTRIES = [
-    ("denmark", "Denmark", "DNK"),
-    ("sweden", "Sweden", "SWE"),
-    ("norway", "Norway", "NOR"),
-    ("finland", "Finland", "FIN"),
-    ("iceland", "Iceland", "ISL"),
+    ("denmark", "Denmark", "DNK", "Danmark"),
+    ("sweden", "Sweden", "SWE", "Sverige"),
+    ("norway", "Norway", "NOR", "Norge"),
+    ("finland", "Finland", "FIN", "Suomi"),
+    ("iceland", "Iceland", "ISL", "Ísland"),
 ]
+COUNTRY_NAME = {iso: name for _, name, iso, _ in COUNTRIES}
 SECTORS = [
     ("it-software", "IT and software", ("72", "48")),
-    ("construction", "Construction and building works", ("45",)),
+    ("construction", "Construction", ("45",)),
     ("cleaning-facility", "Cleaning and facility services", ("909", "907", "797", "983")),
-    ("medical-health", "Medical equipment and health", ("33", "85")),
-    ("consulting", "Consulting and business services", ("79", "73", "71")),
+    ("medical-health", "Medical and health", ("33", "85")),
+    ("consulting", "Consulting and engineering", ("79", "73", "71")),
     ("transport-vehicles", "Transport and vehicles", ("60", "34")),
     ("energy-environment", "Energy and environment", ("09", "31", "90")),
 ]
@@ -105,6 +107,10 @@ def uniq(values) -> list[str]:
     return list(dict.fromkeys(str(v) for v in values if v not in (None, "")))
 
 
+def sectors_for(cpv: list[str]) -> list[str]:
+    return [slug for slug, _, prefixes in SECTORS if any(c.startswith(p) for c in cpv for p in prefixes)]
+
+
 def shape(n: dict) -> dict | None:
     pub = n.get("publication-number")
     if not pub:
@@ -118,59 +124,113 @@ def shape(n: dict) -> dict | None:
             pass
     currencies = uniq(n.get("estimated-value-cur-lot"))
     title = pick(n.get("notice-title"))
-    # TED titles start with "Country – CPV description – actual title"; keep the useful part.
+    # TED titles read "Country – CPV description – buyer's own title".
     parts = [p.strip() for p in title.split(" – ")]
-    short = parts[-1] if len(parts) >= 3 else title
+    own = " – ".join(parts[2:]) if len(parts) >= 3 else title
     category = parts[1] if len(parts) >= 3 else ""
+    cpv = uniq(n.get("classification-cpv"))
     return {
         "id": pub,
-        "title": short or title,
-        "category": category,
-        "buyer": pick(n.get("buyer-name")),
-        "country": (uniq(n.get("buyer-country")) or [""])[0],
-        "published": (uniq(n.get("publication-date")) or [""])[0][:10],
-        "deadline": deadlines[0] if deadlines else "",
-        "value": round(sum(values)) if values else None,
-        "currency": currencies[0] if len(currencies) == 1 else "",
-        "cpv": uniq(n.get("classification-cpv")),
-        "url": f"https://ted.europa.eu/en/notice/-/detail/{pub}",
+        "t": own or title,
+        "c": category,
+        "b": pick(n.get("buyer-name")),
+        "n": (uniq(n.get("buyer-country")) or [""])[0],
+        "p": (uniq(n.get("publication-date")) or [""])[0][:10],
+        "d": deadlines[0] if deadlines else "",
+        "v": round(sum(values)) if values else None,
+        "u": currencies[0] if len(currencies) == 1 else "",
+        "s": sectors_for(cpv),
     }
 
 
 # ---------------------------------------------------------------- html
 CSS = """
-:root{--bg:#fbfaf7;--fg:#1d2026;--muted:#5d6470;--line:#e3e1da;--card:#ffffff;--accent:#0f5d7a;--accent-ink:#ffffff;--chip:#eef4f6}
-@media (prefers-color-scheme:dark){:root{--bg:#121417;--fg:#e9e7e2;--muted:#a3a8b1;--line:#2a2e35;--card:#1a1d22;--accent:#5fb3cf;--accent-ink:#0c1215;--chip:#1f2a30}}
+:root{--paper:#f6f4ef;--ink:#1c1b19;--soft:#5b5852;--rule:#d8d3c7;--row:#fffdf8;--hi:#8f2d22;--hi-bg:#f3e3df;--focus:#1c1b19}
+@media (prefers-color-scheme:dark){:root{--paper:#151514;--ink:#ecebe6;--soft:#a29f97;--rule:#33312d;--row:#1c1c1a;--hi:#e58b7c;--hi-bg:#3a2522;--focus:#ecebe6}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-a{color:var(--accent)}
-.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
-header.top{border-bottom:1px solid var(--line)}
-header.top .wrap{display:flex;gap:16px;align-items:center;justify-content:space-between;min-height:60px;flex-wrap:wrap}
-.brand{font-weight:700;letter-spacing:.2px;text-decoration:none;color:var(--fg)}
-nav a{margin-right:14px;text-decoration:none;color:var(--muted);font-size:15px}
-.hero{padding:44px 0 20px}
-.hero h1{font-size:clamp(28px,4.4vw,42px);line-height:1.15;margin:0 0 12px;max-width:820px}
-.hero p{color:var(--muted);max-width:720px;margin:0 0 20px;font-size:18px}
-.btn{display:inline-block;background:var(--accent);color:var(--accent-ink);padding:11px 18px;border-radius:8px;text-decoration:none;font-weight:600}
-.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);margin-left:8px}
-.stats{display:flex;gap:28px;flex-wrap:wrap;margin:26px 0 8px;color:var(--muted)}
-.stats b{display:block;font-size:26px;color:var(--fg)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:14px 0 28px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;text-decoration:none;color:var(--fg)}
-.card span{color:var(--muted);font-size:14px}
-h2{font-size:22px;margin:34px 0 10px}
-.tbl{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.tbl th,.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:15px}
-.tbl th{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
-.tbl td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.tbl .cat{display:block;color:var(--muted);font-size:13px}
-.chip{display:inline-block;background:var(--chip);border-radius:999px;padding:1px 8px;font-size:12px;color:var(--muted)}
-.scroll{overflow-x:auto}
-.cta{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin:30px 0}
-.cta h3{margin:0 0 6px}
-footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 40px;color:var(--muted);font-size:14px}
-@media (max-width:640px){.tbl thead{display:none}.tbl tr{display:block;border-bottom:1px solid var(--line)}.tbl td{display:block;border:0;padding:4px 12px}.tbl td:first-child{padding-top:12px}.tbl td:last-child{padding-bottom:12px}.tbl td.num{text-align:left}.btn.ghost{margin:8px 0 0}}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+a{color:inherit}
+.w{max-width:1120px;margin:0 auto;padding:0 16px}
+.mast{border-bottom:2px solid var(--ink)}
+.mast .w{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:16px;padding-bottom:10px}
+.logo{font:700 21px/1.1 Georgia,"Iowan Old Style","Times New Roman",serif;text-decoration:none;letter-spacing:-.2px}
+.logo small{display:block;font:12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--soft);letter-spacing:.3px;margin-top:3px}
+.mast nav a{font-size:14px;text-decoration:none;margin-left:18px;color:var(--soft)}
+.mast nav a[aria-current]{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+.sub{border-bottom:1px solid var(--rule);font-size:13px;color:var(--soft)}
+.sub .w{display:flex;gap:16px;flex-wrap:wrap;padding-top:7px;padding-bottom:7px}
+.sub a{text-decoration:none}.sub a:hover{text-decoration:underline}
+h1{font:700 26px/1.2 Georgia,"Iowan Old Style","Times New Roman",serif;margin:26px 0 6px;letter-spacing:-.2px}
+.lede{color:var(--soft);margin:0 0 18px;max-width:760px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin-bottom:4px}
+.filters input,.filters select{font:inherit;font-size:14px;color:var(--ink);background:var(--row);border:1px solid var(--rule);border-radius:3px;padding:6px 8px;min-width:0}
+.filters input{flex:1 1 220px}
+.filters select{flex:0 1 auto}
+.filters :focus{outline:2px solid var(--focus);outline-offset:1px}
+.count{font-size:13px;color:var(--soft);padding:8px 0}
+ol.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.item{display:grid;grid-template-columns:1fr 150px 120px;gap:4px 18px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.item:hover{background:var(--row)}
+.ttl{font-weight:600;text-decoration:none}.ttl:hover{text-decoration:underline}
+.meta{font-size:13px;color:var(--soft);grid-column:1}
+.dl,.val{font-size:14px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dl small,.val small{display:block;font-size:12px;color:var(--soft)}
+.dl.soon{color:var(--hi)}.dl.soon small{color:var(--hi)}
+.colhead{display:grid;grid-template-columns:1fr 150px 120px;gap:18px;font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:.6px;padding:6px 0}
+.colhead span:not(:first-child){text-align:right}
+.more{margin:16px 0;font-size:14px}
+button.more{font:inherit;font-size:14px;background:none;border:1px solid var(--ink);color:var(--ink);padding:7px 14px;border-radius:3px;cursor:pointer}
+.prose{max-width:700px}
+.prose h2{font:700 19px/1.3 Georgia,"Iowan Old Style","Times New Roman",serif;margin:28px 0 6px}
+.prose p,.prose li{margin:0 0 10px}
+.price{border:1px solid var(--rule);background:var(--row);padding:14px 16px;margin:14px 0;max-width:700px}
+.price b{font-size:20px}
+.btn{display:inline-block;background:var(--ink);color:var(--paper);text-decoration:none;padding:9px 16px;border-radius:3px;font-weight:600;font-size:14px}
+pre{background:var(--row);border:1px solid var(--rule);padding:12px;overflow-x:auto;font-size:12.5px;line-height:1.45}
+.note{font-size:13px;color:var(--soft)}
+footer{border-top:1px solid var(--rule);margin-top:44px;padding:18px 0 40px;font-size:13px;color:var(--soft)}
+footer p{margin:0 0 6px;max-width:760px}
+@media (max-width:700px){
+ .item,.colhead{grid-template-columns:1fr auto}
+ .colhead span:nth-child(3),.item .val{display:none}
+ .mast nav a{margin:0 14px 0 0}
+ .mast nav{width:100%}
+}
+"""
+
+JS = """
+(function(){
+ var list=document.getElementById('list'); if(!list) return;
+ var preset=JSON.parse(list.getAttribute('data-preset')||'{}');
+ var q=document.getElementById('q'),fc=document.getElementById('fc'),fs=document.getElementById('fs'),fd=document.getElementById('fd'),so=document.getElementById('so');
+ var cnt=document.getElementById('count'),more=document.getElementById('more');
+ var data=null,shown=60,today=list.getAttribute('data-today');
+ var names=JSON.parse(list.getAttribute('data-countries'));
+ function days(d){return Math.round((Date.parse(d)-Date.parse(today))/864e5);}
+ function money(v,u){if(!v)return '';var s=v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3)+'k':String(v);return s+' '+(u||'');}
+ function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+ function row(t){var n=days(t.d);var soon=n<=7?' soon':'';
+  return '<li class="item"><div><a class="ttl" target="_blank" rel="noopener" href="https://ted.europa.eu/en/notice/-/detail/'+esc(t.id)+'">'+esc(t.t)+'</a>'+
+  '<div class="meta">'+esc(t.b)+' &middot; '+esc(names[t.n]||t.n)+(t.c?' &middot; '+esc(t.c):'')+'</div></div>'+
+  '<div class="dl'+soon+'">'+esc(t.d)+'<small>'+(n<=0?'today':n===1?'1 day left':n+' days left')+'</small></div>'+
+  '<div class="val">'+(t.v?esc(money(t.v,t.u)):'<small>value not stated</small>')+'</div></li>';}
+ function apply(){ if(!data) return;
+  var text=(q.value||'').toLowerCase().trim(),c=fc.value,s=fs.value,d=parseInt(fd.value||'0',10);
+  var out=data.filter(function(t){
+   if(c&&t.n!==c) return false; if(s&&t.s.indexOf(s)<0) return false;
+   if(d&&days(t.d)>d) return false;
+   if(text&&(t.t+' '+t.b+' '+t.c).toLowerCase().indexOf(text)<0) return false; return true;});
+  var k=so.value;
+  out.sort(function(a,b){ if(k==='deadline') return a.d<b.d?-1:a.d>b.d?1:0; if(k==='value') return (b.v||0)-(a.v||0); return a.p<b.p?1:a.p>b.p?-1:0;});
+  cnt.textContent=out.length+' open tender'+(out.length===1?'':'s');
+  list.innerHTML=out.slice(0,shown).map(row).join('');
+  more.hidden=out.length<=shown;
+ }
+ [q,fc,fs,fd,so].forEach(function(el){el.addEventListener(el===q?'input':'change',function(){shown=60;apply();});});
+ more.addEventListener('click',function(){shown+=60;apply();});
+ fetch(list.getAttribute('data-src')).then(function(r){return r.json();}).then(function(j){data=j;
+  if(preset.c){fc.value=preset.c;} if(preset.s){fs.value=preset.s;} apply();}).catch(function(){});
+})();
 """
 
 
@@ -178,143 +238,170 @@ def esc(s) -> str:
     return html.escape(str(s or ""), quote=True)
 
 
-def fmt_value(t: dict) -> str:
-    if not t["value"]:
-        return "<span class=chip>not stated</span>"
-    v = t["value"]
-    txt = f"{v/1e6:.1f}M" if v >= 1e6 else (f"{v/1e3:.0f}k" if v >= 1e3 else f"{v:.0f}")
-    return f"{txt} {esc(t['currency'])}"
+def money(v, u) -> str:
+    if not v:
+        return ""
+    s = f"{v/1e6:.1f}M" if v >= 1e6 else (f"{round(v/1e3)}k" if v >= 1e3 else str(v))
+    return f"{s} {u}".strip()
 
 
-def table(items: list[dict], show_country=True) -> str:
-    if not items:
-        return "<p>No open tenders right now. TED publishes on weekdays, so check back tomorrow.</p>"
-    rows = []
-    for t in items[:MAX_PER_PAGE]:
-        rows.append(
-            "<tr>"
-            f"<td><a href='{esc(t['url'])}' rel='nofollow noopener' target='_blank'>{esc(t['title'])}</a>"
-            f"<span class=cat>{esc(t['category'])}</span></td>"
-            f"<td>{esc(t['buyer'])}</td>"
-            + (f"<td>{esc(t['country'])}</td>" if show_country else "")
-            + f"<td class=num>{esc(t['deadline'])}</td>"
-            f"<td class=num>{fmt_value(t)}</td>"
-            "</tr>"
-        )
-    head = ("<tr><th>Tender</th><th>Buyer</th>" + ("<th>Country</th>" if show_country else "")
-            + "<th>Deadline</th><th>Est. value</th></tr>")
-    more = ""
-    if len(items) > MAX_PER_PAGE:
-        more = (f"<p>Showing the {MAX_PER_PAGE} newest of {len(items)}. "
-                f"<a href='{ACTOR_URL}'>Get the full list as a spreadsheet or API</a>.</p>")
-    return f"<div class=scroll><table class=tbl><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table></div>{more}"
+def days_left(deadline: str, today: dt.date) -> int:
+    try:
+        return (dt.date.fromisoformat(deadline) - today).days
+    except ValueError:
+        return 999
 
 
-def cta() -> str:
+def row_html(t: dict, today: dt.date) -> str:
+    n = days_left(t["d"], today)
+    left = "today" if n <= 0 else ("1 day left" if n == 1 else f"{n} days left")
+    meta = f"{esc(t['b'])} &middot; {esc(COUNTRY_NAME.get(t['n'], t['n']))}" + (f" &middot; {esc(t['c'])}" if t["c"] else "")
+    val = esc(money(t["v"], t["u"])) if t["v"] else "<small>value not stated</small>"
+    return (f"<li class=item><div><a class=ttl target=_blank rel=noopener "
+            f"href='https://ted.europa.eu/en/notice/-/detail/{esc(t['id'])}'>{esc(t['t'])}</a>"
+            f"<div class=meta>{meta}</div></div>"
+            f"<div class='dl{' soon' if n <= 7 else ''}'>{esc(t['d'])}<small>{left}</small></div>"
+            f"<div class=val>{val}</div></li>")
+
+
+def filters_html(preset: dict) -> str:
+    copts = "".join(f"<option value='{iso}'{' selected' if preset.get('c') == iso else ''}>{name}</option>"
+                    for _, name, iso, _ in COUNTRIES)
+    sopts = "".join(f"<option value='{slug}'{' selected' if preset.get('s') == slug else ''}>{name}</option>"
+                    for slug, name, _ in SECTORS)
     return (
-        "<div class=cta><h3>Get new tenders as a daily alert</h3>"
-        "<p>Pick your countries, keywords and CPV codes once. Every morning you get only the new "
-        "tenders that match, as a spreadsheet, email or straight into your CRM. Pay a fraction of a cent per tender, "
-        "no subscription.</p>"
-        f"<a class=btn href='{ACTOR_URL}'>Set up my tender alert</a></div>"
+        "<div class=filters role=search>"
+        "<input id=q type=search placeholder='Search title, buyer or category (any language)' aria-label='Search tenders'>"
+        f"<select id=fc aria-label='Country'><option value=''>All countries</option>{copts}</select>"
+        f"<select id=fs aria-label='Sector'><option value=''>All sectors</option>{sopts}</select>"
+        "<select id=fd aria-label='Deadline'><option value=''>Any deadline</option><option value='7'>Closes within 7 days</option>"
+        "<option value='14'>Within 14 days</option><option value='30'>Within 30 days</option></select>"
+        "<select id=so aria-label='Sort'><option value='new'>Newest first</option><option value='deadline'>Deadline soonest</option>"
+        "<option value='value'>Highest value</option></select></div>"
     )
 
 
-def page(title: str, desc: str, body: str, path: str, updated: str) -> str:
+def listing(items: list[dict], today: dt.date, preset: dict) -> str:
+    rows = "".join(row_html(t, today) for t in items[:SERVER_ROWS])
+    countries = json.dumps({iso: name for _, name, iso, _ in COUNTRIES})
+    return (
+        filters_html(preset)
+        + f"<div class=count id=count>{len(items)} open tender{'' if len(items) == 1 else 's'}</div>"
+        + "<div class=colhead aria-hidden=true><span>Tender</span><span>Deadline</span><span>Est. value</span></div>"
+        + f"<ol class=list id=list data-src='tenders.json' data-today='{today.isoformat()}' "
+          f"data-preset='{esc(json.dumps(preset))}' data-countries='{esc(countries)}'>{rows}</ol>"
+        + f"<button class=more id=more{' hidden' if len(items) <= SERVER_ROWS else ''}>Show more</button>"
+    )
+
+
+def page(title: str, desc: str, body: str, path: str, today: dt.date, active: str = "") -> str:
     canonical = f"{SITE_URL}/{path}" if path != "index.html" else f"{SITE_URL}/"
-    nav = "".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _ in COUNTRIES[:4])
+    nav = "".join(
+        f"<a href='{href}'{' aria-current=page' if key == active else ''}>{label}</a>"
+        for key, href, label in (("tenders", "index.html", "Tenders"), ("alerts", "alerts.html", "Alerts and API"),
+                                 ("about", "about.html", "About")))
+    sub = "".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _, _ in COUNTRIES) + \
+          "".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _ in SECTORS[:4])
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(title)}</title><meta name="description" content="{esc(desc)}">
 <link rel="canonical" href="{canonical}"><meta property="og:title" content="{esc(title)}">
 <meta property="og:description" content="{esc(desc)}"><meta property="og:type" content="website">
 <style>{CSS}</style></head><body>
-<header class=top><div class=wrap><a class=brand href="index.html">{BRAND}</a><nav>{nav}</nav></div></header>
-<main class=wrap>{body}</main>
-<footer><div class=wrap>Updated {esc(updated)} from TED, the official EU public procurement journal.
-Source: &copy; European Union, <a href="https://ted.europa.eu">ted.europa.eu</a>, reused under the Commission's open data policy.
-Always check the official notice before bidding. {BRAND} is an independent service, not affiliated with the EU.</div></footer>
+<header class=mast><div class=w><a class=logo href="index.html">{BRAND}<small>Public tenders in the Nordic countries</small></a><nav>{nav}</nav></div></header>
+<div class=sub><div class=w>{sub}</div></div>
+<main class=w>{body}</main>
+<footer><div class=w>
+<p>Updated {today:%d %B %Y}. Notices come from TED, the EU's official journal for public procurement (&copy; European Union, reused under the Commission's open data policy). Titles are TED's English versions where one exists; read the official notice before you bid.</p>
+<p>{BRAND} is an independent service based in Copenhagen and is not part of the EU or any public authority.</p>
+</div></footer>
+<script>{JS}</script>
 </body></html>"""
 
 
-def plural(n: int) -> str:
-    return f"{n} open tender" + ("" if n == 1 else "s")
-
-
-def sector_of(t: dict) -> list[str]:
-    out = []
-    for slug, _, prefixes in SECTORS:
-        if any(c.startswith(p) for c in t["cpv"] for p in prefixes):
-            out.append(slug)
-    return out
-
-
 def build(notices: list[dict], out: Path, today: dt.date) -> dict:
-    items = [s for s in (shape(n) for n in notices) if s]
     seen, tenders = set(), []
-    for t in items:
-        if t["id"] not in seen:
+    for t in (shape(n) for n in notices):
+        if t and t["id"] not in seen:
             seen.add(t["id"])
             tenders.append(t)
-    tenders.sort(key=lambda t: (t["published"], t["id"]), reverse=True)
-    updated = f"{today:%d %B %Y}"
+    tenders.sort(key=lambda t: (t["p"], t["id"]), reverse=True)
     out.mkdir(parents=True, exist_ok=True)
-    pages = ["index.html"]
-    by_country = {iso: [t for t in tenders if t["country"] == iso] for _, _, iso in COUNTRIES}
-    by_sector = {slug: [t for t in tenders if slug in sector_of(t)] for slug, _, _ in SECTORS}
+    for old in out.glob("*.html"):
+        old.unlink()
+    (out / "tenders.json").write_text(json.dumps(tenders, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    pages = []
 
-    for slug, name, iso in COUNTRIES:
-        lst = by_country[iso]
-        body = (f"<section class=hero><h1>Open public tenders in {name}</h1>"
-                f"<p>{len(lst)} calls for tender from public buyers in {name} that are still open for bids, "
-                f"published on TED in the last {DAYS} days. Updated every day.</p></section>"
-                + table(lst, show_country=False) + cta())
-        (out / f"{slug}.html").write_text(page(
-            f"Open public tenders in {name} ({len(lst)} today) | {BRAND}",
-            f"{len(lst)} open public procurement tenders in {name} from TED, with buyer, deadline and value. Updated daily.",
-            body, f"{slug}.html", updated), encoding="utf-8")
-        pages.append(f"{slug}.html")
+    def write(name, html_text):
+        (out / name).write_text(html_text, encoding="utf-8")
+        pages.append(name)
+
+    week = sum(1 for t in tenders if t["p"] >= (today - dt.timedelta(days=6)).isoformat())
+    body = (f"<h1>Open public tenders in the Nordic countries</h1>"
+            f"<p class=lede>{len(tenders)} calls for tender from public buyers in Denmark, Sweden, Norway, Finland and Iceland "
+            f"that still accept bids. {week} of them were published in the last seven days. The list is rebuilt from TED every morning.</p>"
+            + listing(tenders, today, {}))
+    write("index.html", page(f"Open public tenders in the Nordics ({len(tenders)}) | {BRAND}",
+                             "Open public tenders in Denmark, Sweden, Norway, Finland and Iceland, from TED. Search by keyword, country, sector and deadline. Updated every morning.",
+                             body, "index.html", today, "tenders"))
+
+    for slug, name, iso, local in COUNTRIES:
+        lst = [t for t in tenders if t["n"] == iso]
+        body = (f"<h1>Open public tenders in {name}</h1>"
+                f"<p class=lede>{len(lst)} calls for tender from public buyers in {name} ({local}) that still accept bids, "
+                f"published on TED in the last {DAYS} days.</p>" + listing(lst, today, {"c": iso}))
+        write(f"{slug}.html", page(f"Public tenders in {name}: {len(lst)} open | {BRAND}",
+                                   f"{len(lst)} open public tenders in {name} from TED, with buyer, deadline and value. Updated every morning.",
+                                   body, f"{slug}.html", today))
 
     for slug, name, _ in SECTORS:
-        lst = by_sector[slug]
-        body = (f"<section class=hero><h1>Nordic public tenders: {name.lower()}</h1>"
-                f"<p>{len(lst)} open calls for tender in {name.lower()} from Denmark, Sweden, Norway, Finland and Iceland. "
-                f"Updated every day from TED.</p></section>" + table(lst) + cta())
-        (out / f"{slug}.html").write_text(page(
-            f"Nordic {name.lower()} tenders ({len(lst)} open) | {BRAND}",
-            f"{len(lst)} open public tenders for {name.lower()} in the Nordic countries, from official TED data. Updated daily.",
-            body, f"{slug}.html", updated), encoding="utf-8")
-        pages.append(f"{slug}.html")
+        lst = [t for t in tenders if slug in t["s"]]
+        body = (f"<h1>{name}: open public tenders in the Nordics</h1>"
+                f"<p class=lede>{len(lst)} open calls for tender in {name.lower()} from Nordic public buyers. "
+                f"The sector is matched on the CPV codes the buyer chose, so check the notice for the exact scope.</p>"
+                + listing(lst, today, {"s": slug}))
+        write(f"{slug}.html", page(f"{name} tenders in the Nordics: {len(lst)} open | {BRAND}",
+                                   f"{len(lst)} open public tenders in {name.lower()} in Denmark, Sweden, Norway, Finland and Iceland. Updated every morning.",
+                                   body, f"{slug}.html", today))
 
-    total_value = sum(t["value"] or 0 for t in tenders if t["currency"] in ("EUR",))
-    country_cards = "".join(
-        f"<a class=card href='{slug}.html'><b>{name}</b><br><span>{plural(len(by_country[iso]))}</span></a>"
-        for slug, name, iso in COUNTRIES)
-    sector_cards = "".join(
-        f"<a class=card href='{slug}.html'><b>{name}</b><br><span>{plural(len(by_sector[slug]))}</span></a>"
-        for slug, name, _ in SECTORS)
-    body = (
-        "<section class=hero><h1>Every open public tender in the Nordics, in one place.</h1>"
-        "<p>Public buyers in Denmark, Sweden, Norway, Finland and Iceland publish thousands of contracts a year. "
-        "We collect the ones you can still bid on, every day, and send you only the new ones that fit your business.</p>"
-        f"<a class=btn href='{ACTOR_URL}'>Get daily tender alerts</a>"
-        "<a class='btn ghost' href='#latest'>See today's tenders</a>"
-        f"<div class=stats><div><b>{len(tenders)}</b>open tenders</div>"
-        f"<div><b>{sum(1 for t in tenders if t['published'] >= (today - dt.timedelta(days=6)).isoformat())}</b>published this week</div>"
-        + (f"<div><b>EUR {total_value/1e6:,.0f}M</b>stated value (EUR notices)</div>" if total_value else "")
-        + "</div></section>"
-        f"<h2>By country</h2><div class=grid>{country_cards}</div>"
-        f"<h2>By sector</h2><div class=grid>{sector_cards}</div>"
-        "<h2 id=latest>Newest open tenders</h2>" + table(tenders[:40]) + cta()
-        + "<h2>How it works</h2><p>Every EU public buyer above the EU thresholds must publish on TED, the official journal. "
-        "We read TED every day, keep the notices that are still open, clean them up and translate the titles to English. "
-        f"For alerts and full exports we run the same search for you on <a href='{ACTOR_URL}'>Apify</a>: filter by keyword in "
-        "any language, country, CPV code, value and deadline, and get a spreadsheet, JSON or API feed.</p>"
-    )
-    (out / "index.html").write_text(page(
-        f"Nordic public tenders today ({len(tenders)} open) | {BRAND}",
-        "Every open public tender in Denmark, Sweden, Norway, Finland and Iceland, updated daily from TED. Daily alerts by keyword, country and CPV code.",
-        body, "index.html", updated), encoding="utf-8")
+    alerts = f"""<div class=prose>
+<h1>Alerts and API</h1>
+<p class=lede>The list on this site is free. If you want the tenders that match your business delivered every morning, or the full data as a spreadsheet or API feed, use our tender finder on Apify.</p>
+<h2>What you set up once</h2>
+<p>Keywords in any language (for example <i>rengøring</i>, <i>städning</i> or <i>cloud</i>), the countries you sell to, CPV codes if you use them, and a minimum contract value if small jobs are not worth your time. Then add a daily schedule in Apify.</p>
+<h2>What you get each morning</h2>
+<p>Only the notices that are new since the last run, one row per tender: title, buyer, buyer email, deadline, estimated value, CPV codes, the place of performance and links to the TED notice and the tender documents. Apify can send them to email, Slack, Google Sheets or your CRM.</p>
+<pre>{{
+  "title": "Denmark – Supply services of personnel including temporary staff – ...",
+  "buyerName": "Region Hovedstaden",
+  "submissionDeadline": "2026-12-17",
+  "estimatedValue": 224000000,
+  "currency": "DKK",
+  "cpvCodes": ["79620000", "85311000"],
+  "tedUrl": "https://ted.europa.eu/en/notice/-/detail/790080-2026"
+}}</pre>
+<h2>Price</h2>
+<div class=price><b>$0.003 per tender delivered</b><br>No subscription. A daily alert for one sector in one country usually returns a handful of tenders a day, which is a few cents. Runs that find nothing new cost close to nothing. Apify adds its own small platform fee and has a free monthly allowance.</div>
+<p><a class=btn href="{ACTOR_URL}">Open the tender finder on Apify</a></p>
+<h2>Coverage</h2>
+<p>All notices on TED, which covers contracts above the EU thresholds from every EU and EEA country. Smaller national tenders that only appear on national portals such as udbud.dk or Doffin are not included yet.</p>
+<p class=note>Questions or a missing filter: write to us through the <a href="{ISSUES_URL}">Apify issues page</a>.</p>
+</div>"""
+    write("alerts.html", page(f"Tender alerts and API | {BRAND}",
+                              "Daily alerts for new public tenders in the Nordics and the EU, by keyword, country and CPV code. $0.003 per tender, no subscription.",
+                              alerts, "alerts.html", today, "alerts"))
+
+    about = f"""<div class=prose>
+<h1>About</h1>
+<p>{BRAND} is a small, independent service in Copenhagen. We make public procurement data from the Nordic countries easy to search and easy to act on.</p>
+<p>Public buyers in the EU must publish larger contracts on TED, the EU's official journal. The data is public, but it is spread over 24 languages and hard to filter, so small companies often miss contracts they could have won. This site lists every Nordic notice that is still open, and the tender finder on Apify turns the same data into daily alerts and exports.</p>
+<h2>Where the data comes from</h2>
+<p>Every listing comes from the official TED search service of the Publications Office of the European Union. We do not edit notices. We shorten titles, pick the English translation where TED has one, and add sector labels based on CPV codes.</p>
+<h2>Contact</h2>
+<p>Write to us through the <a href="{ISSUES_URL}">Apify issues page</a> for the tender finder.</p>
+</div>"""
+    write("about.html", page(f"About | {BRAND}", f"{BRAND} is an independent Copenhagen service for Nordic public tender data.",
+                             about, "about.html", today, "about"))
 
     urls = "".join(f"<url><loc>{SITE_URL}/{p if p != 'index.html' else ''}</loc><lastmod>{today.isoformat()}</lastmod></url>"
                    for p in pages)
@@ -324,8 +411,8 @@ def build(notices: list[dict], out: Path, today: dt.date) -> dict:
     (out / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n", encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")
     (out / "data.json").write_text(json.dumps({"updated": today.isoformat(), "count": len(tenders),
-                                               "by_country": {k: len(v) for k, v in by_country.items()}}),
-                                   encoding="utf-8")
+                                               "by_country": {iso: sum(1 for t in tenders if t["n"] == iso)
+                                                              for _, _, iso, _ in COUNTRIES}}), encoding="utf-8")
     return {"tenders": len(tenders), "pages": len(pages)}
 
 
@@ -339,8 +426,6 @@ def main() -> int:
     notices = json.loads(Path(args.fixture).read_text()) if args.fixture else fetch_notices(today)
     stats = build(notices, Path(args.out), today)
     print(f"Built {stats['pages']} pages with {stats['tenders']} open tenders")
-    if not args.fixture and stats["tenders"] == 0 and today.weekday() < 5:
-        print("No tenders found on a weekday; something may be wrong", file=sys.stderr)
     return 0
 
 
