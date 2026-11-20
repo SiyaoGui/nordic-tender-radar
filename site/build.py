@@ -1,4 +1,4 @@
-"""Build the Nordic Tender Radar website from TED (official EU procurement data).
+"""Build the Tendernord website from TED (official EU procurement data).
 
 Runs every morning in GitHub Actions. Fetches calls for tender from the Nordic
 countries that are still open, and writes static pages into docs/ (GitHub Pages).
@@ -17,9 +17,9 @@ from pathlib import Path
 
 API_URL = "https://api.ted.europa.eu/v3/notices/search"
 SITE_URL = "https://siyaogui.github.io/nordic-tender-radar"
-ACTOR_URL = "https://apify.com/nordic-tender-radar/eu-tender-finder"
-ISSUES_URL = "https://apify.com/nordic-tender-radar/eu-tender-finder/issues"
-BRAND = "Nordic Tender Radar"
+ACTOR_URL = "https://apify.com/tendernord/eu-tender-finder"
+ISSUES_URL = "https://apify.com/tendernord/eu-tender-finder/issues"
+BRAND = "Tendernord"
 DAYS = 30
 SERVER_ROWS = 60  # rows rendered into the HTML; the rest load from tenders.json
 
