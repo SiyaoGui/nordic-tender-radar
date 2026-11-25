@@ -20,6 +20,7 @@ SITE_URL = "https://siyaogui.github.io/nordic-tender-radar"
 ACTOR_URL = "https://apify.com/tendernord/eu-tender-finder"
 ISSUES_URL = "https://apify.com/tendernord/eu-tender-finder/issues"
 BRAND = "Tendernord"
+CONTACT_EMAIL = "alicesnack0225@gmail.com"
 DAYS = 30
 SERVER_ROWS = 60  # rows rendered into the HTML; the rest load from tenders.json
 
@@ -188,6 +189,11 @@ button.more{font:inherit;font-size:14px;background:none;border:1px solid var(--i
 .btn{display:inline-block;background:var(--ink);color:var(--paper);text-decoration:none;padding:9px 16px;border-radius:3px;font-weight:600;font-size:14px}
 pre{background:var(--row);border:1px solid var(--rule);padding:12px;overflow-x:auto;font-size:12.5px;line-height:1.45}
 .note{font-size:13px;color:var(--soft)}
+.cta{border:1px solid var(--ink);background:var(--row);padding:16px 18px;margin:0 0 30px;max-width:760px}
+.cta h2{font:700 18px/1.3 Georgia,"Iowan Old Style","Times New Roman",serif;margin:0 0 6px}
+.cta p{margin:0 0 12px}
+.cta .note{margin:10px 0 0}
+h2.sec{font:700 20px/1.3 Georgia,"Iowan Old Style","Times New Roman",serif;margin:0 0 6px}
 footer{border-top:1px solid var(--rule);margin-top:44px;padding:18px 0 40px;font-size:13px;color:var(--soft)}
 footer p{margin:0 0 6px;max-width:760px}
 @media (max-width:700px){
@@ -308,7 +314,7 @@ def page(title: str, desc: str, body: str, path: str, today: dt.date, active: st
 <link rel="canonical" href="{canonical}"><meta property="og:title" content="{esc(title)}">
 <meta property="og:description" content="{esc(desc)}"><meta property="og:type" content="website">
 <style>{CSS}</style></head><body>
-<header class=mast><div class=w><a class=logo href="index.html">{BRAND}<small>Public tenders in the Nordic countries</small></a><nav>{nav}</nav></div></header>
+<header class=mast><div class=w><a class=logo href="index.html">{BRAND}<small>Public contracts in the Nordic countries</small></a><nav>{nav}</nav></div></header>
 <div class=sub><div class=w>{sub}</div></div>
 <main class=w>{body}</main>
 <footer><div class=w>
@@ -337,12 +343,23 @@ def build(notices: list[dict], out: Path, today: dt.date) -> dict:
         pages.append(name)
 
     week = sum(1 for t in tenders if t["p"] >= (today - dt.timedelta(days=6)).isoformat())
-    body = (f"<h1>Open public tenders in the Nordic countries</h1>"
+    mailto = f"mailto:{CONTACT_EMAIL}?subject=Contract%20overview%20request"
+    body = (f"<h1>Who holds which public contracts in the Nordics, and when they come up again</h1>"
+            f"<p class=lede>{BRAND} reads the contract award notices on TED and keeps track of who holds which public contract "
+            f"in Denmark, Sweden, Norway, Finland and Iceland, what it was awarded for and when it is tendered again.</p>"
+            f"<div class=cta><h2>Free contract overview for your area</h2>"
+            f"<p>Tell us your trade and your region. We send you one page with the public contracts held there today: "
+            f"buyer, current supplier, award value and award date, each with its TED notice number. "
+            f"The contract term is included where the notice states it.</p>"
+            f"<a class=btn href='{mailto}'>Request your free overview</a>"
+            f"<p class=note>Or write to <a href='mailto:{CONTACT_EMAIL}'>{CONTACT_EMAIL}</a>.</p></div>"
+            f"<h2 class=sec id=tenders>Open tenders today</h2>"
             f"<p class=lede>{len(tenders)} calls for tender from public buyers in Denmark, Sweden, Norway, Finland and Iceland "
             f"that still accept bids. {week} of them were published in the last seven days. The list is rebuilt from TED every morning.</p>"
             + listing(tenders, today, {}))
-    write("index.html", page(f"Open public tenders in the Nordics ({len(tenders)}) | {BRAND}",
-                             "Open public tenders in Denmark, Sweden, Norway, Finland and Iceland, from TED. Search by keyword, country, sector and deadline. Updated every morning.",
+    write("index.html", page(f"Who holds Nordic public contracts and when they are tendered again | {BRAND}",
+                             "Who holds which public contract in Denmark, Sweden, Norway, Finland and Iceland, what it was awarded for and when it comes up again. "
+                             f"Plus {len(tenders)} open tenders from TED, updated every morning.",
                              body, "index.html", today, "tenders"))
 
     for slug, name, iso, local in COUNTRIES:
