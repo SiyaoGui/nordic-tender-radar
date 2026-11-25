@@ -1,8 +1,8 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>About | Tendernord</title><meta name="description" content="Tendernord is an independent Copenhagen service for Nordic public tender data.">
+<title>About | Tendernord</title><meta name="description" content="Tendernord is a public contract intelligence service in Copenhagen for suppliers bidding in the Nordic countries.">
 <link rel="canonical" href="https://siyaogui.github.io/nordic-tender-radar/about.html"><meta property="og:title" content="About | Tendernord">
-<meta property="og:description" content="Tendernord is an independent Copenhagen service for Nordic public tender data."><meta property="og:type" content="website">
+<meta property="og:description" content="Tendernord is a public contract intelligence service in Copenhagen for suppliers bidding in the Nordic countries."><meta property="og:type" content="website">
 <style>
 :root{--paper:#f6f4ef;--ink:#1c1b19;--soft:#5b5852;--rule:#d8d3c7;--row:#fffdf8;--hi:#8f2d22;--hi-bg:#f3e3df;--focus:#1c1b19}
 @media (prefers-color-scheme:dark){:root{--paper:#151514;--ink:#ecebe6;--soft:#a29f97;--rule:#33312d;--row:#1c1c1a;--hi:#e58b7c;--hi-bg:#3a2522;--focus:#ecebe6}}
@@ -47,34 +47,54 @@ button.more{font:inherit;font-size:14px;background:none;border:1px solid var(--i
 .btn{display:inline-block;background:var(--ink);color:var(--paper);text-decoration:none;padding:9px 16px;border-radius:3px;font-weight:600;font-size:14px}
 pre{background:var(--row);border:1px solid var(--rule);padding:12px;overflow-x:auto;font-size:12.5px;line-height:1.45}
 .note{font-size:13px;color:var(--soft)}
-.cta{border:1px solid var(--ink);background:var(--row);padding:16px 18px;margin:0 0 30px;max-width:760px}
+.cta{border:1px solid var(--ink);background:var(--row);padding:16px 18px;margin:22px 0 30px;max-width:760px}
 .cta h2{font:700 18px/1.3 Georgia,"Iowan Old Style","Times New Roman",serif;margin:0 0 6px}
 .cta p{margin:0 0 12px}
 .cta .note{margin:10px 0 0}
 h2.sec{font:700 20px/1.3 Georgia,"Iowan Old Style","Times New Roman",serif;margin:0 0 6px}
+.item.aw,.colhead.aw{grid-template-columns:1fr 230px 120px}
+.win{font-size:14px}.win small{display:block;font-size:12px;color:var(--soft)}
+.colhead.aw span:nth-child(2){text-align:left}
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin:0 0 30px}
+.cols h3{font:700 16px/1.3 Georgia,"Iowan Old Style","Times New Roman",serif;margin:0 0 4px}
+.cols p{margin:0;color:var(--soft);font-size:14px}
+.tw{overflow-x:auto;margin:0 0 12px}
+table.file{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+table.file th{font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:.6px;text-align:left;font-weight:400;padding:6px 10px 6px 0;border-bottom:2px solid var(--ink)}
+table.file td{padding:9px 10px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+table.file .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+h2.sec{margin-top:34px}
+p.more a{font-weight:600}
 footer{border-top:1px solid var(--rule);margin-top:44px;padding:18px 0 40px;font-size:13px;color:var(--soft)}
 footer p{margin:0 0 6px;max-width:760px}
 @media (max-width:700px){
  .item,.colhead{grid-template-columns:1fr auto}
  .colhead span:nth-child(3),.item .val{display:none}
+ .item.aw,.colhead.aw{grid-template-columns:1fr}
+ .colhead.aw{display:none}
+ .item.aw .val{display:block;text-align:left}
+ .cols{grid-template-columns:1fr}
  .mast nav a{margin:0 14px 0 0}
  .mast nav{width:100%}
 }
 </style></head><body>
-<header class=mast><div class=w><a class=logo href="index.html">Tendernord<small>Public contracts in the Nordic countries</small></a><nav><a href='index.html'>Tenders</a><a href='alerts.html'>Alerts and API</a><a href='about.html' aria-current=page>About</a></nav></div></header>
-<div class=sub><div class=w><a href='denmark.html'>Denmark</a><a href='sweden.html'>Sweden</a><a href='norway.html'>Norway</a><a href='finland.html'>Finland</a><a href='iceland.html'>Iceland</a><a href='it-software.html'>IT and software</a><a href='construction.html'>Construction</a><a href='cleaning-facility.html'>Cleaning and facility services</a><a href='medical-health.html'>Medical and health</a></div></div>
+<header class=mast><div class=w><a class=logo href="index.html">Tendernord<small>Nordic public contract intelligence</small></a><nav><a href='competitor-file.html'>Competitor file</a><a href='awards.html'>Recent awards</a><a href='tenders.html'>Open tenders</a><a href='pricing.html'>Pricing</a><a href='about.html' aria-current=page>About</a></nav></div></header>
+<div class=sub><div class=w><span>Open tenders by country and sector:</span><a href='denmark.html'>Denmark</a><a href='sweden.html'>Sweden</a><a href='norway.html'>Norway</a><a href='finland.html'>Finland</a><a href='iceland.html'>Iceland</a><a href='it-software.html'>IT and software</a><a href='construction.html'>Construction</a><a href='cleaning-facility.html'>Cleaning and facility services</a><a href='medical-health.html'>Medical and health</a></div></div>
 <main class=w><div class=prose>
 <h1>About</h1>
-<p>Tendernord is a small, independent service in Copenhagen. We make public procurement data from the Nordic countries easy to search and easy to act on.</p>
-<p>Public buyers in the EU must publish larger contracts on TED, the EU's official journal. The data is public, but it is spread over 24 languages and hard to filter, so small companies often miss contracts they could have won. This site lists every Nordic notice that is still open, and the tender finder on Apify turns the same data into daily alerts and exports.</p>
+<p>Tendernord is a public contract intelligence service based in Copenhagen. We work with suppliers who bid for public contracts in Denmark, Sweden, Norway, Finland and Iceland.</p>
+<p>Public buyers must publish their larger contracts, and the outcome of each one, on TED, the EU's official journal. The award notices say who won, at what value and how many suppliers bid. That information is public, but it sits in thousands of separate notices in several languages. We bring it together around the one decision a supplier has to make: whether to bid, and at what price.</p>
+<h2>How we work</h2>
+<p>Every figure in a competitor file is taken from an official notice and shown with its TED notice number, so you can check it yourself. We do not estimate values or contract end dates. Where a notice leaves something out, we say so.</p>
 <h2>Where the data comes from</h2>
-<p>Every listing comes from the official TED search service of the Publications Office of the European Union. We do not edit notices. We shorten titles, pick the English translation where TED has one, and add sector labels based on CPV codes.</p>
+<p>The official TED search service of the Publications Office of the European Union. The site is rebuilt from it every morning. We shorten titles, use the English version where TED has one, and add sector labels based on the CPV codes the buyer chose.</p>
 <h2>Contact</h2>
-<p>Write to us through the <a href="https://apify.com/tendernord/eu-tender-finder/issues">Apify issues page</a> for the tender finder.</p>
+<p>Tendernord, Copenhagen, Denmark<br><a href="mailto:alicesnack0225@gmail.com">alicesnack0225@gmail.com</a></p>
+<p>We answer within one working day.</p>
 </div></main>
 <footer><div class=w>
-<p>Updated 25 November 2026. Notices come from TED, the EU's official journal for public procurement (&copy; European Union, reused under the Commission's open data policy). Titles are TED's English versions where one exists; read the official notice before you bid.</p>
-<p>Tendernord is an independent service based in Copenhagen and is not part of the EU or any public authority.</p>
+<p>Updated 25 November 2026. Notices come from TED, the EU's official journal for public procurement (&copy; European Union, reused under the Commission's open data policy). Read the official notice before you bid.</p>
+<p>Tendernord, Copenhagen, Denmark &middot; <a href="mailto:alicesnack0225@gmail.com">alicesnack0225@gmail.com</a> &middot; Tendernord is independent and is not part of the EU or any public authority.</p>
 </div></footer>
 <script>
 (function(){
@@ -108,6 +128,33 @@ footer p{margin:0 0 6px;max-width:760px}
  more.addEventListener('click',function(){shown+=60;apply();});
  fetch(list.getAttribute('data-src')).then(function(r){return r.json();}).then(function(j){data=j;
   if(preset.c){fc.value=preset.c;} if(preset.s){fs.value=preset.s;} apply();}).catch(function(){});
+})();
+(function(){
+ var list=document.getElementById('awards'); if(!list) return;
+ var q=document.getElementById('q'),fc=document.getElementById('fc'),fs=document.getElementById('fs'),so=document.getElementById('so');
+ var cnt=document.getElementById('count'),more=document.getElementById('more');
+ var data=null,shown=60,names=JSON.parse(list.getAttribute('data-countries'));
+ function money(v,u){if(!v)return '';var s=v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?Math.round(v/1e3)+'k':String(v);return s+' '+(u||'');}
+ function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+ function row(a){var bids=a.k?(a.k+(a.k===1?' bid':' bids')):'bids not stated';
+  return '<li class="item aw"><div><a class="ttl" target="_blank" rel="noopener" href="https://ted.europa.eu/en/notice/-/detail/'+esc(a.id)+'">'+esc(a.t)+'</a>'+
+  '<div class="meta">'+esc(a.b)+' &middot; '+esc(names[a.n]||a.n)+(a.c?' &middot; '+esc(a.c):'')+'</div></div>'+
+  '<div class="win">'+esc(a.w)+'<small>'+esc(bids)+(a.m?' &middot; '+esc(a.m):'')+'</small></div>'+
+  '<div class="val">'+(a.v?esc(money(a.v,a.u)):'<small>value not stated</small>')+'<small>'+esc(a.p)+'</small></div></li>';}
+ function apply(){ if(!data) return;
+  var text=(q.value||'').toLowerCase().trim(),c=fc.value,s=fs.value;
+  var out=data.filter(function(a){
+   if(c&&a.n!==c) return false; if(s&&a.s.indexOf(s)<0) return false;
+   if(text&&(a.t+' '+a.b+' '+a.c+' '+a.w).toLowerCase().indexOf(text)<0) return false; return true;});
+  var k=so.value;
+  out.sort(function(a,b){ if(k==='value') return (b.v||0)-(a.v||0); if(k==='bids') return (b.k||0)-(a.k||0); return a.p<b.p?1:a.p>b.p?-1:0;});
+  cnt.textContent=out.length+' contract award'+(out.length===1?'':'s');
+  list.innerHTML=out.slice(0,shown).map(row).join('');
+  more.hidden=out.length<=shown;
+ }
+ [q,fc,fs,so].forEach(function(el){el.addEventListener(el===q?'input':'change',function(){shown=60;apply();});});
+ more.addEventListener('click',function(){shown+=60;apply();});
+ fetch(list.getAttribute('data-src')).then(function(r){return r.json();}).then(function(j){data=j;apply();}).catch(function(){});
 })();
 </script>
 </body></html>
