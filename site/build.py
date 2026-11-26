@@ -40,11 +40,19 @@ SECTORS = [
     ("it-software", "IT and software", ("72", "48")),
     ("construction", "Construction", ("45",)),
     ("cleaning-facility", "Cleaning and facility services", ("909", "907", "797", "983")),
+    ("waste-recycling", "Waste and recycling", ("905",)),
+    ("facility-maintenance", "Facility maintenance", ("507", "7033", "79993")),
+    ("security", "Security services", ("7971",)),
+    ("catering", "Catering and food services", ("553", "555")),
+    ("passenger-transport", "Passenger transport", ("6011", "6012", "6013", "6014", "6017")),
     ("medical-health", "Medical and health", ("33", "85")),
     ("consulting", "Consulting and engineering", ("79", "73", "71")),
     ("transport-vehicles", "Transport and vehicles", ("60", "34")),
     ("energy-environment", "Energy and environment", ("09", "31", "90")),
 ]
+# Sector pages linked in the bar under the header. Every sector page is linked from tenders.html.
+SUBNAV_SECTORS = ("cleaning-facility", "waste-recycling", "facility-maintenance", "security", "catering",
+                  "passenger-transport")
 FIELDS = [
     "publication-number", "notice-type", "notice-title", "buyer-name", "buyer-country",
     "publication-date", "deadline-receipt-tender-date-lot", "estimated-value-lot",
@@ -507,7 +515,7 @@ def page(title: str, desc: str, body: str, path: str, today: dt.date, active: st
                                  ("tenders", "tenders.html", "Open tenders"), ("pricing", "pricing.html", "Pricing"),
                                  ("about", "about.html", "About")))
     sub = "".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _, _ in COUNTRIES) + \
-          "".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _ in SECTORS[:4])
+          "".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _ in SECTORS if slug in SUBNAV_SECTORS)
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(title)}</title><meta name="description" content="{esc(desc)}">
@@ -645,6 +653,7 @@ def build(notices: list[dict], out: Path, today: dt.date, award_notices: list[di
     body = (f"<h1>Open public tenders in the Nordic countries</h1>"
             f"<p class=lede>{len(tenders)} calls for tender from public buyers in Denmark, Sweden, Norway, Finland and Iceland "
             f"that still accept bids. {week} of them were published in the last seven days. The list is rebuilt from TED every morning.</p>"
+            "<p>By sector: " + ", ".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _ in SECTORS) + "</p>"
             + listing(tenders, today, {}))
     write("tenders.html", page(f"Open public tenders in the Nordics ({len(tenders)}) | {BRAND}",
                                f"{len(tenders)} open public tenders in Denmark, Sweden, Norway, Finland and Iceland from TED, "
