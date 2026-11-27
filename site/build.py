@@ -17,6 +17,8 @@ import time
 import urllib.request
 from pathlib import Path
 
+import insights
+
 API_URL = "https://api.ted.europa.eu/v3/notices/search"
 SITE_URL = "https://siyaogui.github.io/nordic-tender-radar"
 ACTOR_URL = "https://apify.com/tendernord/eu-tender-finder"
@@ -61,7 +63,7 @@ FIELDS = [
 OPEN_TYPES = "cn-standard cn-social cn-desg subco pin-cfc-standard pin-cfc-social"
 AWARD_FIELDS = [
     "publication-number", "notice-title", "buyer-name", "buyer-country", "publication-date",
-    "organisation-name-tenderer", "tender-value", "tender-value-cur",
+    "winner-name", "total-value", "total-value-cur",
     "received-submissions-type-val", "contract-duration-period-lot", "classification-cpv",
 ]
 # Sample competitor file: cleaning contracts awarded by public buyers in Greater Copenhagen.
@@ -197,16 +199,19 @@ def shape(n: dict) -> dict | None:
 
 def shape_award(n: dict) -> dict | None:
     pub = n.get("publication-number")
-    winners = uniq(pick_list(n.get("organisation-name-tenderer")))
+    # winner-name holds the winners only; organisation-name-tenderer also lists losing bidders.
+    winners = uniq(pick_list(n.get("winner-name")))
     if not pub or not winners:
         return None
-    values = []
-    for v in n.get("tender-value") or []:
-        try:
-            values.append(float(v))
-        except (TypeError, ValueError):
-            pass
-    currencies = uniq(n.get("tender-value-cur"))
+    # total-value is the value of the notice as the buyer reports it; tender-value lists every bid.
+    total = n.get("total-value")
+    if isinstance(total, list):
+        total = total[0] if len(total) == 1 else None
+    try:
+        total = float(total)
+    except (TypeError, ValueError):
+        total = None
+    currencies = uniq(n.get("total-value-cur"))
     bids = []
     for v in n.get("received-submissions-type-val") or []:
         try:
@@ -233,7 +238,7 @@ def shape_award(n: dict) -> dict | None:
         "n": (uniq(n.get("buyer-country")) or [""])[0],
         "p": (uniq(n.get("publication-date")) or [""])[0][:10],
         "w": shown,
-        "v": round(sum(values)) if values and len(currencies) == 1 else None,
+        "v": round(total) if total and len(currencies) == 1 else None,
         "u": currencies[0] if len(currencies) == 1 else "",
         "k": max(bids) if bids and max(bids) > 0 else None,
         "m": terms[0] if len(terms) == 1 else "",
@@ -512,7 +517,8 @@ def page(title: str, desc: str, body: str, path: str, today: dt.date, active: st
     nav = "".join(
         f"<a href='{href}'{' aria-current=page' if key == active else ''}>{label}</a>"
         for key, href, label in (("file", "competitor-file.html", "Competitor file"), ("awards", "awards.html", "Recent awards"),
-                                 ("tenders", "tenders.html", "Open tenders"), ("pricing", "pricing.html", "Pricing"),
+                                 ("tenders", "tenders.html", "Open tenders"), ("insights", "insights.html", "Insights"),
+                                 ("pricing", "pricing.html", "Pricing"),
                                  ("about", "about.html", "About")))
     sub = "".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _, _ in COUNTRIES) + \
           "".join(f"<a href='{slug}.html'>{name}</a>" for slug, name, _ in SECTORS if slug in SUBNAV_SECTORS)
@@ -641,7 +647,7 @@ def build(notices: list[dict], out: Path, today: dt.date, award_notices: list[di
     body = (f"<h1>Public contracts awarded in the Nordics</h1>"
             f"<p class=lede>{len(awards)} contract award notices from the last {DAYS} days that name the winning supplier, "
             f"from public buyers in Denmark, Sweden, Norway, Finland and Iceland. Search by buyer, supplier or type of work. "
-            f"For a contract split into lots, the value is the sum of the lots and the bid count is the highest lot figure.</p>"
+            f"The value is the total the buyer reports in the notice. For a contract split into lots, the bid count is the highest lot figure.</p>"
             + awards_listing(awards, today)
             + request_box)
     write("awards.html", page(f"Recent public contract awards in the Nordics: who won | {BRAND}",
@@ -680,6 +686,10 @@ def build(notices: list[dict], out: Path, today: dt.date, award_notices: list[di
         write(f"{slug}.html", page(f"{name} tenders in the Nordics: {len(lst)} open | {BRAND}",
                                    f"{len(lst)} open public tenders in {name.lower()} in Denmark, Sweden, Norway, Finland and Iceland. Updated every morning.",
                                    body, f"{slug}.html", today, "tenders"))
+
+    # ---- insights (articles live in insights.py)
+    for name, title, desc, body in insights.pages(BRAND):
+        write(name, page(title, desc, body + request_box, name, today, "insights"))
 
     # ---- pricing
     pricing = f"""<div class=prose>
